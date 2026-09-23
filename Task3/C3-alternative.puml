@@ -1,0 +1,40 @@
+@startuml C3-alternative
+!include <C4/C4_Component>
+
+title C3. Вариант B: компоненты сервиса инцидентов в центре
+
+Container(video, "Сервис видеоаналитики", "Go, GPU")
+System(kafka, "Kafka", "Детекции и телеметрия всех ферм")
+ContainerDb(centraldb, "БД платформы", "PostgreSQL")
+Container(notify, "Сервис оповещений", "Go")
+Container(fleet, "Сервис ферм и конфигурации", "Go")
+
+Container_Boundary(incidents, "Сервис инцидентов") {
+  Component(consumer, "Подписчик Kafka", "Go", "Читает детекции и телеметрию всех ферм, партиции разложены по farm_id")
+  Component(router, "Маршрутизация по ферме", "Go", "Определяет ферму и её конфигурацию, следит, чтобы события одной фермы обрабатывались по порядку")
+  Component(state, "Кеш состояния ферм", "Go, Redis", "Последние показания по всем фермам. В памяти одного процесса не помещается, поэтому вынесен во внешний кеш")
+  Component(engine, "Движок правил", "Go", "Прогоняет событие через включённые правила фермы")
+  Component(rules, "Набор правил", "Go", "Те же правила, что и в варианте A, но пороги свои у каждой фермы")
+  Component(suppress, "Подавление повторов", "Go", "Ключ ферма-тип-загон-окно")
+  Component(repo, "Репозитории", "Go", "Инциденты и конфигурация ферм")
+  Component(lag, "Контроль запаздывания", "Go", "Смотрит возраст события: если ферма отвалилась и события пришли пачкой, инциденты помечаются просроченными")
+}
+
+Rel(video, kafka, "Детекции")
+Rel(kafka, consumer, "Детекции и телеметрия")
+Rel(consumer, router, "Событие с farm_id")
+Rel(router, lag, "Проверка возраста события")
+Rel(router, state, "Обновляет состояние фермы")
+Rel(lag, engine, "Событие в обработку")
+Rel(engine, state, "Читает состояние загона", "Redis")
+Rel(engine, rules, "Прогоняет по правилам")
+Rel(rules, repo, "Пороги правил фермы")
+Rel(engine, suppress, "Проверяет повторы")
+Rel(suppress, repo, "Недавние инциденты")
+Rel(engine, repo, "Сохраняет инцидент")
+Rel(engine, notify, "Инцидент к оповещению")
+Rel(repo, centraldb, "Чтение и запись", "SQL")
+Rel(fleet, repo, "Конфигурация ферм")
+
+SHOW_LEGEND()
+@enduml

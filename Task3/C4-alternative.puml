@@ -1,0 +1,113 @@
+@startuml C4-alternative
+
+title C4. Вариант B: код движка правил в центре
+
+skinparam classAttributeIconSize 0
+hide empty members
+
+class FarmEvent {
+  +id: string
+  +farmId: string
+  +type: EventType
+  +penId: string
+  +payload: map
+  +occurredAt: time
+}
+
+class IncidentService {
+  -engine: RuleEngine
+  -state: FarmStateCache
+  -repo: IncidentRepository
+  -config: FarmConfigProvider
+  +Handle(e: FarmEvent) error
+}
+
+class FarmStateCache {
+  -client: RedisClient
+  +Update(farmId, penId: string, e: FarmEvent) error
+  +Pen(farmId, penId: string): (PenState, error)
+}
+
+class PenState {
+  +lastDetections: []Detection
+  +telemetry: map
+  +headcount: int
+}
+
+class FarmConfigProvider {
+  -cache: map[farmId]FarmConfig
+  +Config(farmId: string): FarmConfig
+}
+
+class FarmConfig {
+  +enabledRules: []string
+  +thresholds: map
+}
+
+class LagGuard {
+  -maxAge: duration
+  +Check(e: FarmEvent): bool
+}
+
+class RuleEngine {
+  -rules: []IncidentRule
+  +Evaluate(e: FarmEvent, s: PenState, c: FarmConfig): []Incident
+}
+
+interface IncidentRule {
+  +AppliesTo(e: FarmEvent): bool
+  +Check(e: FarmEvent, s: PenState, c: FarmConfig): *Incident
+}
+
+class FightRule
+class CrushingRule
+class WaterFilterRule
+class HeadcountRule
+
+class Incident {
+  +id: string
+  +farmId: string
+  +kind: string
+  +severity: Severity
+  +delayed: bool
+  +createdAt: time
+}
+
+interface IncidentRepository {
+  +Save(i: Incident) error
+  +Recent(farmId, kind, penId: string): []Incident
+}
+
+class NotificationClient {
+  +Notify(i: Incident) error
+}
+
+IncidentService --> LagGuard
+IncidentService --> RuleEngine
+IncidentService --> FarmStateCache
+IncidentService --> FarmConfigProvider
+IncidentService --> IncidentRepository
+IncidentService --> NotificationClient
+RuleEngine o-- IncidentRule
+IncidentRule <|.. FightRule
+IncidentRule <|.. CrushingRule
+IncidentRule <|.. WaterFilterRule
+IncidentRule <|.. HeadcountRule
+RuleEngine ..> Incident
+FarmStateCache ..> PenState
+FarmConfigProvider ..> FarmConfig
+IncidentService ..> FarmEvent
+
+note right of FarmStateCache
+  Состояние всех ферм в одном процессе
+  не держится, поэтому Redis.
+  В варианте A это было поле в памяти
+end note
+
+note bottom of LagGuard
+  Ферма могла быть без связи.
+  События приходят пачкой и с опозданием,
+  инцидент помечается delayed
+end note
+
+@enduml
