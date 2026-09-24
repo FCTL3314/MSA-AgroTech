@@ -18,7 +18,7 @@ System_Boundary(hq, "Центральная платформа") {
   Container(commands, "Сервис команд", "Python", "Кормление и поение: команды уходят на шлюзы ферм")
   Container(notify, "Сервис оповещений", "Python", "Push дежурному и оператору, команда на сирену")
   Container(api, "API платформы", "Python", "REST для приложений, проверка прав")
-  Container(fleet, "Сервис ферм и конфигурации", "Python", "Реестр шлюзов, пороги правил, раздача моделей")
+  Container(fleet, "Сервис ферм и конфигурации", "Python", "Реестр шлюзов, пороги правил и описания своих метрик, раздача моделей")
   ContainerDb(centraldb, "БД платформы", "PostgreSQL", "Фермы, инциденты, справочники, конфигурация")
 }
 
@@ -31,6 +31,7 @@ System(iot, "IoT-платформа", "Node-RED, TimescaleDB. Существую
 System(apps, "Веб-портал и мобильное приложение")
 System(kafka, "Kafka", "Корпоративная шина")
 System(erp, "ERP 1С:Агро")
+System(storage, "Data Lake, DWH, BI", "Существующие. Здесь считается прогноз расхода корма")
 
 Rel(cameras, streamer, "Видеопоток", "RTSP")
 BiRel(devgw, equipment, "Команды и статусы", "MQTT, Modbus")
@@ -53,7 +54,9 @@ Rel(api, centraldb, "Инциденты и справочники", "SQL")
 Rel(api, idp, "Проверка токена", "OIDC")
 Rel(apps, api, "Запросы пользователя", "REST")
 Rel(operator, apps, "Разбирает инциденты")
-Rel(incidents, kafka, "Метрики платформы")
+Rel(incidents, kafka, "Базовые и пользовательские метрики")
+Rel(kafka, storage, "Данные для аналитики, расход корма")
+Rel(storage, api, "Прогноз расхода корма")
 Rel(api, erp, "Расход корма и заявки на закупку", "REST")
 
 SHOW_LEGEND()
