@@ -6,12 +6,12 @@ skinparam classAttributeIconSize 0
 hide empty members
 
 class FarmEvent {
-  +id: string
-  +farmId: string
+  +id: str
+  +farm_id: str
   +type: EventType
-  +penId: string
-  +payload: map
-  +occurredAt: time
+  +pen_id: str
+  +payload: dict
+  +occurred_at: datetime
 }
 
 class IncidentService {
@@ -19,44 +19,44 @@ class IncidentService {
   -state: FarmStateCache
   -repo: IncidentRepository
   -config: FarmConfigProvider
-  +Handle(e: FarmEvent) error
+  +handle(e: FarmEvent)
 }
 
 class FarmStateCache {
-  -client: RedisClient
-  +Update(farmId, penId: string, e: FarmEvent) error
-  +Pen(farmId, penId: string): (PenState, error)
+  -client: Redis
+  +update(farm_id: str, pen_id: str, e: FarmEvent)
+  +pen(farm_id: str, pen_id: str): PenState
 }
 
 class PenState {
-  +lastDetections: []Detection
-  +telemetry: map
+  +last_detections: list[Detection]
+  +telemetry: dict
   +headcount: int
 }
 
 class FarmConfigProvider {
-  -cache: map[farmId]FarmConfig
-  +Config(farmId: string): FarmConfig
+  -cache: dict[str, FarmConfig]
+  +config(farm_id: str): FarmConfig
 }
 
 class FarmConfig {
-  +enabledRules: []string
-  +thresholds: map
+  +enabled_rules: list[str]
+  +thresholds: dict
 }
 
 class LagGuard {
-  -maxAge: duration
-  +Check(e: FarmEvent): bool
+  -max_age: timedelta
+  +check(e: FarmEvent): bool
 }
 
 class RuleEngine {
-  -rules: []IncidentRule
-  +Evaluate(e: FarmEvent, s: PenState, c: FarmConfig): []Incident
+  -rules: list[IncidentRule]
+  +evaluate(e: FarmEvent, s: PenState, c: FarmConfig): list[Incident]
 }
 
 interface IncidentRule {
-  +AppliesTo(e: FarmEvent): bool
-  +Check(e: FarmEvent, s: PenState, c: FarmConfig): *Incident
+  +applies_to(e: FarmEvent): bool
+  +check(e: FarmEvent, s: PenState, c: FarmConfig): Incident | None
 }
 
 class FightRule
@@ -65,21 +65,21 @@ class WaterFilterRule
 class HeadcountRule
 
 class Incident {
-  +id: string
-  +farmId: string
-  +kind: string
+  +id: str
+  +farm_id: str
+  +kind: str
   +severity: Severity
   +delayed: bool
-  +createdAt: time
+  +created_at: datetime
 }
 
 interface IncidentRepository {
-  +Save(i: Incident) error
-  +Recent(farmId, kind, penId: string): []Incident
+  +save(i: Incident)
+  +recent(farm_id: str, kind: str, pen_id: str): list[Incident]
 }
 
 class NotificationClient {
-  +Notify(i: Incident) error
+  +notify(i: Incident)
 }
 
 IncidentService --> LagGuard

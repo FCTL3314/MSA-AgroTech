@@ -6,43 +6,43 @@ skinparam classAttributeIconSize 0
 hide empty members
 
 class FarmEvent {
-  +id: string
+  +id: str
   +type: EventType
-  +penId: string
-  +animalId: string
-  +payload: map
-  +occurredAt: time
+  +pen_id: str
+  +animal_id: str
+  +payload: dict
+  +occurred_at: datetime
 }
 
 class IncidentService {
   -engine: RuleEngine
   -state: FarmState
   -repo: IncidentRepository
-  +Handle(e: FarmEvent) error
+  +handle(e: FarmEvent)
 }
 
 class FarmState {
-  -snapshot: map[penId]PenState
-  +Update(e: FarmEvent)
-  +Pen(penId): PenState
-  +Persist() error
-  +Restore() error
+  -snapshot: dict[str, PenState]
+  +update(e: FarmEvent)
+  +pen(pen_id: str): PenState
+  +persist()
+  +restore()
 }
 
 class PenState {
-  +lastDetections: []Detection
-  +telemetry: map
+  +last_detections: list[Detection]
+  +telemetry: dict
   +headcount: int
 }
 
 class RuleEngine {
-  -rules: []IncidentRule
-  +Evaluate(e: FarmEvent, s: PenState): []Incident
+  -rules: list[IncidentRule]
+  +evaluate(e: FarmEvent, s: PenState): list[Incident]
 }
 
 interface IncidentRule {
-  +AppliesTo(e: FarmEvent): bool
-  +Check(e: FarmEvent, s: PenState): *Incident
+  +applies_to(e: FarmEvent): bool
+  +check(e: FarmEvent, s: PenState): Incident | None
 }
 
 class FightRule
@@ -51,29 +51,29 @@ class WaterFilterRule
 class HeadcountRule
 
 class Incident {
-  +id: string
-  +kind: string
-  +penId: string
+  +id: str
+  +kind: str
+  +pen_id: str
   +severity: Severity
-  +frameRef: string
-  +createdAt: time
+  +frame_ref: str
+  +created_at: datetime
 }
 
 class Suppressor {
-  -window: duration
-  +IsDuplicate(i: Incident): bool
+  -window: timedelta
+  +is_duplicate(i: Incident): bool
 }
 
 interface IncidentRepository {
-  +Save(i: Incident) error
-  +Recent(kind, penId: string): []Incident
-  +Thresholds(): map
+  +save(i: Incident)
+  +recent(kind: str, pen_id: str): list[Incident]
+  +thresholds(): dict
 }
 
 class PostgresIncidentRepo
 
 class AlarmSender {
-  +Send(i: Incident) error
+  +send(i: Incident)
 }
 
 IncidentService --> RuleEngine

@@ -1,0 +1,24 @@
+@startuml C2-isolation-schema
+!include <C4/C4_Container>
+
+title Изоляция данных, вариант 1: общая БД, схема на клиента
+
+Container(api, "API платформы", "Python", "Определяет клиента по токену и подставляет его схему")
+Container(services, "Сервисы платформы", "Python", "Инциденты, реестр ферм, метрики. Один набор процессов на всех клиентов")
+ContainerDb(db, "Общая БД", "PostgreSQL", "Схема tenant_a, схема tenant_b, ... Общие соединения и общий диск")
+Container(migrator, "Мигратор", "Python", "Применяет изменения схемы сразу ко всем клиентам")
+
+Rel(api, services, "Запрос с tenant_id")
+Rel(services, db, "SET search_path = tenant_x", "SQL")
+Rel(migrator, db, "Миграции на все схемы")
+
+note right of db
+  Дёшево, все клиенты на одном сервере.
+  Подключение клиента это создание
+  схемы за секунды.
+  Ошибка в коде может дать доступ
+  к чужой схеме, нагрузка общая
+end note
+
+SHOW_LEGEND()
+@enduml
