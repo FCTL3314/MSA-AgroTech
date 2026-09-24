@@ -1,0 +1,63 @@
+@startuml C2-alternative
+!include <C4/C4_Container>
+
+title C2. Вариант B: вся обработка в центре
+
+Person(duty, "Дежурный на ферме", "Реагирует на месте")
+Person(operator, "Оператор мониторинга", "Разбирает инциденты со всех ферм")
+
+System_Boundary(farm, "Шлюз фермы") {
+  Container(streamer, "Сервис передачи видео", "Go", "Отдаёт RTSP-потоки камер в центр, при обрыве связи поток теряется")
+  Container(devgw, "Шлюз устройств", "Go", "Адаптеры к контроллерам, телеметрия наружу, команды внутрь")
+  ContainerDb(buffer, "Буфер телеметрии", "SQLite", "Держит телеметрию, пока нет связи")
+}
+
+System_Boundary(hq, "Центральная платформа") {
+  Container(video, "Сервис видеоаналитики", "Python, ONNX Runtime, GPU", "Обрабатывает потоки всех ферм, масштабируется по числу камер")
+  Container(incidents, "Сервис инцидентов", "Python", "Правила по всем фермам, дедупликация, приоритет")
+  Container(commands, "Сервис команд", "Python", "Кормление и поение: команды уходят на шлюзы ферм")
+  Container(notify, "Сервис оповещений", "Python", "Push дежурному и оператору, команда на сирену")
+  Container(api, "API платформы", "Python", "REST для приложений, проверка прав")
+  Container(fleet, "Сервис ферм и конфигурации", "Python", "Реестр шлюзов, пороги правил и описания своих метрик, раздача моделей")
+  ContainerDb(centraldb, "БД платформы", "PostgreSQL", "Фермы, инциденты, справочники, конфигурация")
+}
+
+System_Ext(cameras, "Видеокамеры", "RTSP")
+System_Ext(equipment, "Кормушки, поилки, фильтрация")
+System_Ext(siren, "Сирена и световая сигнализация")
+System_Ext(mlmodel, "ML-модели партнёра")
+System_Ext(idp, "Корпоративный SSO")
+System(iot, "IoT-платформа", "Node-RED, TimescaleDB. Существующая, распространяем на фермы")
+System(apps, "Веб-портал и мобильное приложение")
+System(kafka, "Kafka", "Корпоративная шина")
+System(erp, "ERP 1С:Агро")
+System(storage, "Data Lake, DWH, BI", "Существующие. Здесь считается прогноз расхода корма")
+
+Rel(cameras, streamer, "Видеопоток", "RTSP")
+BiRel(devgw, equipment, "Команды и статусы", "MQTT, Modbus")
+Rel(devgw, buffer, "Телеметрия при обрыве связи")
+Rel(devgw, siren, "Включает по команде из центра")
+
+Rel(streamer, video, "Видеопотоки всех ферм", "RTSP поверх WiFi и 4G, узкое место")
+Rel(devgw, iot, "Телеметрия оборудования", "MQTT")
+Rel(iot, kafka, "Телеметрия")
+Rel(kafka, incidents, "Телеметрия для правил")
+Rel(video, incidents, "Детекции", "Kafka")
+Rel(mlmodel, video, "Обученные модели")
+Rel(incidents, centraldb, "Инциденты", "SQL")
+Rel(incidents, notify, "Инцидент к оповещению")
+Rel(notify, duty, "Push, только если есть связь с фермой")
+Rel(notify, devgw, "Команда на сирену", "HTTPS")
+Rel(commands, devgw, "Команды кормления и поения", "HTTPS")
+Rel(fleet, centraldb, "Чтение и запись", "SQL")
+Rel(api, centraldb, "Инциденты и справочники", "SQL")
+Rel(api, idp, "Проверка токена", "OIDC")
+Rel(apps, api, "Запросы пользователя", "REST")
+Rel(operator, apps, "Разбирает инциденты")
+Rel(incidents, kafka, "Базовые и пользовательские метрики")
+Rel(kafka, storage, "Данные для аналитики, расход корма")
+Rel(storage, api, "Прогноз расхода корма")
+Rel(api, erp, "Расход корма и заявки на закупку", "REST")
+
+SHOW_LEGEND()
+@enduml

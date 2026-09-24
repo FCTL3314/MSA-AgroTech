@@ -1,0 +1,26 @@
+@startuml C2-isolation-database
+!include <C4/C4_Container>
+
+title Изоляция данных, вариант 2: отдельная БД на клиента
+
+Container(api, "API платформы", "Python", "По токену выбирает пул соединений клиента")
+Container(services, "Сервисы платформы", "Python", "Один набор процессов, пул соединений на каждого клиента")
+ContainerDb(db1, "БД клиента A", "PostgreSQL")
+ContainerDb(db2, "БД клиента B", "PostgreSQL")
+Container(migrator, "Мигратор", "Python", "Применяет миграции по клиентам по очереди, версии могут разойтись")
+
+Rel(api, services, "Запрос с tenant_id")
+Rel(services, db1, "SQL")
+Rel(services, db2, "SQL")
+Rel(migrator, db1, "Миграции")
+Rel(migrator, db2, "Миграции")
+
+note right of db2
+  Данные разделены физически,
+  бэкап и восстановление по клиенту.
+  Дороже, миграции дольше,
+  число соединений растёт с клиентами
+end note
+
+SHOW_LEGEND()
+@enduml
