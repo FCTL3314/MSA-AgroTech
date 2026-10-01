@@ -1,0 +1,49 @@
+@startuml C2-saas
+!include <C4/C4_Container>
+
+title C2. SaaS-платформа, целевое состояние
+
+Person(client_admin, "Администратор клиента")
+Person(integrator, "Разработчик клиента")
+
+System_Boundary(saas, "SaaS-платформа") {
+  Container(gateway, "API-шлюз", "Go", "Точка входа: определяет клиента, проверяет права, держит лимиты запросов по тарифу")
+  Container(tenants, "Сервис клиентов", "Python", "Клиенты, их фермы и пользователи, тарифный план, онбординг")
+  Container(history, "Сервис инцидентов и истории", "Python", "Приём событий с агентов, хранение и поиск. Работает в контексте клиента")
+  Container(fleet, "Сервис ферм и конфигурации", "Python", "Реестр агентов клиента, пороги правил, раздача моделей")
+  Container(metering, "Сервис тарификации", "Python", "Считает потребление: фермы, камеры, события, объём хранения")
+  Container(billing, "Сервис биллинга", "Python", "Подписки, счета, списания, блокировка при неоплате")
+  Container(portal, "Панель самообслуживания", "Vue", "Фермы, пользователи, тариф, счета, ключи API")
+  Container(devportal, "Портал разработчика", "Vue", "OpenAPI и AsyncAPI, песочница, выпуск ключей")
+  ContainerDb(db, "БД платформы", "PostgreSQL", "Схема на клиента, крупным клиентам отдельная БД")
+  ContainerQueue(bus, "Шина платформы", "Kafka", "События, метрики потребления, вебхуки")
+}
+
+System_Ext(agents, "Агенты на фермах клиентов")
+System_Ext(payments, "Платёжные системы", "ЮKassa, СБП")
+System_Ext(client_systems, "Системы клиента", "ERP, BI")
+System_Ext(idp, "Аутентификация")
+
+Rel(agents, gateway, "События и метрики", "HTTPS")
+Rel(gateway, history, "События клиента")
+Rel(gateway, fleet, "Конфигурация агентов")
+Rel(gateway, tenants, "Кто этот клиент и что ему можно")
+Rel(gateway, idp, "Проверка токена", "OIDC")
+Rel(history, bus, "События и объём хранения")
+Rel(fleet, bus, "Число ферм и камер")
+Rel(bus, metering, "Сырое потребление")
+Rel(metering, billing, "Потребление за период")
+Rel(billing, payments, "Списание, счёт, акт")
+Rel(billing, tenants, "Блокировка или смена тарифа")
+Rel(history, db, "SQL")
+Rel(tenants, db, "SQL")
+Rel(billing, db, "SQL")
+Rel(bus, gateway, "Вебхуки клиентам")
+Rel(gateway, client_systems, "Вебхуки и ответы API", "HTTPS")
+Rel(integrator, devportal, "Документация и ключи")
+Rel(client_admin, portal, "Фермы, тариф, счета")
+Rel(portal, gateway, "REST")
+Rel(devportal, gateway, "REST")
+
+SHOW_LEGEND()
+@enduml

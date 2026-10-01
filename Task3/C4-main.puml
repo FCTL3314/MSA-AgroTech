@@ -1,0 +1,99 @@
+@startuml C4-main
+
+title C4. Вариант A: код движка правил на ферме
+
+skinparam classAttributeIconSize 0
+hide empty members
+
+class FarmEvent {
+  +id: str
+  +type: EventType
+  +pen_id: str
+  +animal_id: str
+  +payload: dict
+  +occurred_at: datetime
+}
+
+class IncidentService {
+  -engine: RuleEngine
+  -state: FarmState
+  -repo: IncidentRepository
+  +handle(e: FarmEvent)
+}
+
+class FarmState {
+  -snapshot: dict[str, PenState]
+  +update(e: FarmEvent)
+  +pen(pen_id: str): PenState
+  +persist()
+  +restore()
+}
+
+class PenState {
+  +last_detections: list[Detection]
+  +telemetry: dict
+  +headcount: int
+}
+
+class RuleEngine {
+  -rules: list[IncidentRule]
+  +evaluate(e: FarmEvent, s: PenState): list[Incident]
+}
+
+interface IncidentRule {
+  +applies_to(e: FarmEvent): bool
+  +check(e: FarmEvent, s: PenState): Incident | None
+}
+
+class FightRule
+class CrushingRule
+class WaterFilterRule
+class HeadcountRule
+
+class Incident {
+  +id: str
+  +kind: str
+  +pen_id: str
+  +severity: Severity
+  +frame_ref: str
+  +created_at: datetime
+}
+
+class Suppressor {
+  -window: timedelta
+  +is_duplicate(i: Incident): bool
+}
+
+interface IncidentRepository {
+  +save(i: Incident)
+  +recent(kind: str, pen_id: str): list[Incident]
+  +thresholds(): dict
+}
+
+class PostgresIncidentRepo
+
+class AlarmSender {
+  +send(i: Incident)
+}
+
+IncidentService --> RuleEngine
+IncidentService --> FarmState
+IncidentService --> Suppressor
+IncidentService --> IncidentRepository
+IncidentService --> AlarmSender
+RuleEngine o-- IncidentRule
+IncidentRule <|.. FightRule
+IncidentRule <|.. CrushingRule
+IncidentRule <|.. WaterFilterRule
+IncidentRule <|.. HeadcountRule
+RuleEngine ..> Incident
+FarmState *-- PenState
+IncidentRepository <|.. PostgresIncidentRepo
+IncidentService ..> FarmEvent
+
+note right of IncidentRule
+  Новое правило это новая реализация
+  интерфейса, существующие не трогаем
+end note
+
+@enduml

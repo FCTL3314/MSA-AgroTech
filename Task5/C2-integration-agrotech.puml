@@ -1,0 +1,44 @@
+@startuml C2-integration-agrotech
+!include <C4/C4_Container>
+
+title C2. «АгроТех Х» как клиент SaaS-платформы
+
+System_Boundary(saas, "SaaS-платформа") {
+  Container(gateway, "API-шлюз", "Go", "Лимиты и права по тарифу «АгроТех Х»")
+  Container(history, "Сервис инцидентов и истории", "Python")
+  Container(fleet, "Сервис ферм и конфигурации", "Python")
+  Container(metering, "Сервис тарификации", "Python")
+  ContainerDb(db, "БД платформы", "PostgreSQL", "У «АгроТех Х» отдельная БД: 150 площадок и требование по данным")
+}
+
+System_Boundary(client, "Контур «АгроТех Х»") {
+  Container(agent1, "Агент фермы 1", "Тот же агент, что в варианте A")
+  Container(agentn, "Агент фермы N", "Всего 150 площадок")
+  Container(connector, "Коннектор к платформе", "Python", "Забирает инциденты и метрики по API, кладёт в корпоративную шину")
+  System(kafka, "Kafka", "Корпоративная шина")
+  System(storage, "Data Lake, DWH, BI")
+  System(erp, "ERP 1С:Агро")
+  System(apps, "Веб-портал и мобильное приложение")
+}
+
+Rel(agent1, gateway, "События и метрики", "HTTPS")
+Rel(agentn, gateway, "События и метрики", "HTTPS")
+Rel(gateway, history, "События")
+Rel(gateway, fleet, "Конфигурация агентов")
+Rel(fleet, agent1, "Пороги правил и модели")
+Rel(history, db, "SQL")
+Rel(history, metering, "Объём событий и хранения")
+Rel(connector, gateway, "Инциденты и метрики по API, подписка на вебхуки", "HTTPS")
+Rel(connector, kafka, "Публикует в корпоративную шину")
+Rel(kafka, storage, "Данные для аналитики")
+Rel(connector, erp, "Расход корма и заявки на закупку", "REST")
+Rel(apps, gateway, "Экраны животноводства", "REST")
+
+note bottom of connector
+  Раньше центральная платформа была внутри компании
+  и ходила в ERP и Kafka сама. Теперь она снаружи,
+  поэтому появляется коннектор на стороне клиента
+end note
+
+SHOW_LEGEND()
+@enduml

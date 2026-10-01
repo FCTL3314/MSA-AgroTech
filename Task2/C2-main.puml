@@ -1,0 +1,66 @@
+@startuml C2-main
+!include <C4/C4_Container>
+
+title C2. Вариант A: контейнеры фермы и центра
+
+Person(duty, "Дежурный на ферме", "Реагирует на месте")
+Person(operator, "Оператор мониторинга", "Разбирает инциденты со всех ферм")
+
+System_Boundary(farm, "Агент фермы") {
+  Container(video, "Сервис видеоаналитики", "Python, ONNX Runtime", "Забирает RTSP-потоки, гоняет модель партнёра, публикует детекции. Держит кольцевой буфер видео на 12 часов")
+  Container(incidents, "Сервис инцидентов", "Python", "Правила, дедупликация, приоритет. Создаёт инцидент и кадр-иллюстрацию")
+  Container(devices, "Сервис устройств", "Go", "Адаптеры к контроллерам кормушек, поилок и фильтрации, команды и телеметрия")
+  Container(sync, "Сервис синхронизации", "Python", "Отправляет события и метрики в центр, забирает конфигурацию. Копит при обрыве связи")
+  Container(panel, "Панель дежурного", "Vue", "Список инцидентов и состояние фермы, работает без интернета")
+  ContainerQueue(bus, "Локальная шина", "RabbitMQ + MQTT", "Детекции, телеметрия, инциденты, команды")
+  ContainerDb(farmdb, "Локальная БД", "PostgreSQL", "Инциденты, справочники животных и дежурств, буфер синхронизации")
+}
+
+System_Boundary(hq, "Центральная платформа") {
+  Container(api, "API платформы", "Python", "REST для веб- и мобильного приложения, проверка прав")
+  Container(fleet, "Сервис ферм и конфигурации", "Python", "Реестр агентов, пороги правил и описания своих метрик, раздача моделей")
+  Container(history, "Сервис инцидентов и истории", "Python", "Приём событий с ферм, хранение, поиск, метрики")
+  ContainerDb(centraldb, "БД платформы", "PostgreSQL", "Фермы, инциденты, справочники, конфигурация")
+}
+
+System_Ext(cameras, "Видеокамеры", "RTSP")
+System_Ext(equipment, "Кормушки, поилки, фильтрация")
+System_Ext(siren, "Сирена и световая сигнализация")
+System_Ext(mlmodel, "ML-модели партнёра")
+System_Ext(idp, "Корпоративный SSO")
+System(apps, "Веб-портал и мобильное приложение", "Существующие, добавляем экраны")
+System(kafka, "Kafka", "Корпоративная шина")
+System(erp, "ERP 1С:Агро")
+System(storage, "Data Lake, DWH, BI", "Существующие. Здесь считается прогноз расхода корма")
+
+Rel(cameras, video, "Видеопоток", "RTSP")
+Rel(video, bus, "Детекции")
+Rel(bus, incidents, "Детекции и телеметрия")
+Rel(incidents, bus, "Инциденты")
+Rel(bus, devices, "Команды оборудованию")
+BiRel(devices, equipment, "Команды и статусы", "MQTT, Modbus")
+Rel(incidents, siren, "Тревога")
+Rel(incidents, farmdb, "Инциденты и кадры", "SQL")
+Rel(devices, farmdb, "Телеметрия", "SQL")
+Rel(panel, incidents, "Список инцидентов", "REST")
+Rel(duty, panel, "Смотрит и подтверждает инциденты")
+Rel(bus, sync, "События и метрики на отправку")
+Rel(sync, farmdb, "Буфер и курсор отправки", "SQL")
+
+Rel(sync, history, "Пакеты событий и метрик, повторы отбрасываются по event_id", "HTTPS, wi-fi или резервный 4G")
+Rel(fleet, sync, "Конфигурация и ссылки на модели", "HTTPS, забирает агент")
+Rel(mlmodel, fleet, "Обученные модели")
+Rel(history, centraldb, "Чтение и запись", "SQL")
+Rel(fleet, centraldb, "Чтение и запись", "SQL")
+Rel(api, history, "Инциденты и метрики", "REST")
+Rel(api, fleet, "Фермы и конфигурация", "REST")
+Rel(api, idp, "Проверка токена", "OIDC")
+Rel(apps, api, "Запросы пользователя", "REST")
+Rel(operator, apps, "Разбирает инциденты")
+Rel(history, kafka, "Базовые и пользовательские метрики, расход корма")
+Rel(kafka, storage, "Данные для аналитики")
+Rel(storage, history, "Прогноз расхода корма")
+Rel(history, erp, "Расход корма и заявки на закупку", "REST")
+
+SHOW_LEGEND()
+@enduml

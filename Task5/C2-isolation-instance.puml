@@ -1,0 +1,37 @@
+@startuml C2-isolation-instance
+!include <C4/C4_Container>
+
+title Изоляция данных, вариант 3: отдельный контур на клиента
+
+Person(admin, "Администратор платформы")
+
+System_Boundary(tenant_a, "Контур клиента A") {
+  Container(api_a, "API платформы", "Python")
+  Container(svc_a, "Сервисы платформы", "Python")
+  ContainerDb(db_a, "БД", "PostgreSQL")
+}
+
+System_Boundary(tenant_b, "Контур клиента B") {
+  Container(api_b, "API платформы", "Python")
+  Container(svc_b, "Сервисы платформы", "Python")
+  ContainerDb(db_b, "БД", "PostgreSQL")
+}
+
+Container(deploy, "Развёртывание", "Helm, CI", "Поднимает и обновляет контур клиента целиком")
+
+Rel(api_a, svc_a, "")
+Rel(svc_a, db_a, "SQL")
+Rel(api_b, svc_b, "")
+Rel(svc_b, db_b, "SQL")
+Rel(deploy, tenant_a, "Разворачивает и обновляет")
+Rel(deploy, tenant_b, "Разворачивает и обновляет")
+Rel(admin, deploy, "Заводит нового клиента")
+
+note bottom of deploy
+  Полная изоляция, вплоть до своей версии.
+  Самое дорогое: ресурсы и обновления
+  умножаются на число клиентов
+end note
+
+SHOW_LEGEND()
+@enduml
